@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+func init() {
+	log.SetFlags(log.Lshortfile)
+}
+
 func TestDataFrameInsert(t *testing.T) {
 	df := NewDataFrame(make([]float64, 100))
 
@@ -47,14 +51,13 @@ func TestShrink(t *testing.T) {
 }
 
 func TestDoubleSmoothing(t *testing.T) {
-	df := EmptyDataFrame(25)
+	df := EmptyDataFrame(24)
 
 	for i := 0; i < df.Len(); i++ {
-		df.Push(float64(i) + rand.Float64())
+		df.Push(float64(i) * rand.Float64())
 	}
 
-	log.Println(df.data)
-	df = df.DoubleExponentialSmooth(0.1, 0.2)
-
-	log.Println(df.data)
+	log.Println(df.Data())
+	df = df.DoubleExponentialSmooth(0.4, 0.2)
+	log.Println(df.Data())
 }
