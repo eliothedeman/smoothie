@@ -1,6 +1,10 @@
 package smoothie
 
-import "testing"
+import (
+	"log"
+	"math/rand"
+	"testing"
+)
 
 func TestDataFrameInsert(t *testing.T) {
 	df := NewDataFrame(make([]float64, 100))
@@ -40,4 +44,17 @@ func TestShrink(t *testing.T) {
 	if df.Len() != 8 {
 		t.Fail()
 	}
+}
+
+func TestDoubleSmoothing(t *testing.T) {
+	df := EmptyDataFrame(25)
+
+	for i := 0; i < df.Len(); i++ {
+		df.Push(float64(i) + rand.Float64())
+	}
+
+	log.Println(df.data)
+	df = df.DoubleExponentialSmooth(0.1, 0.2)
+
+	log.Println(df.data)
 }

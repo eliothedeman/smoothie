@@ -16,6 +16,10 @@ func NewDataFrame(f []float64) *DataFrame {
 	}
 }
 
+func EmptyDataFrame(size int) *DataFrame {
+	return NewDataFrame(make([]float64, size))
+}
+
 type WeightingFunc func(index, length int) float64
 
 func LinearWeighting(index, length int) float64 {
@@ -51,6 +55,51 @@ func (d *DataFrame) MovingAverage(windowSize int) *DataFrame {
 	}
 
 	return ma
+}
+
+func (d *DataFrame) SingleExponentialSmooth(sf float64) *DataFrame {
+	smoothed := EmptyDataFrame(d.Len())
+
+	for i := 0; i < d.Len(); i++ {
+		smoothed.Push(d.SingleSmoothPoint(i, sf))
+	}
+
+	return smoothed
+}
+
+func (d *DataFrame) SingleSmoothPoint(i int, sf float64) float64 {
+	if i <= 1 {
+		return (sf * d.Index(i)) + (1 - sf)
+	}
+
+	return (sf * d.Index(i)) + ((1 - sf) * d.SingleSmoothPoint(i-1, sf))
+}
+
+// given a smoothing factor, apply the hold-winters double exponential smoothing algorhythm
+func (d *DataFrame) DoubleExponentialSmooth(sf, tf float64) *DataFrame {
+	smoothed := NewDataFrame(make([]float64, d.Len()))
+
+	for i := 0; i < d.Len(); i++ {
+		smoothed.Push(d.DoubleSmoothPoint(i, sf, tf))
+	}
+
+	return smoothed
+}
+
+func (d *DataFrame) DoubleSmoothPoint(i int, sf, tf float64) float64 {
+	if i <= 1 {
+		return d.Index(i)
+	}
+
+	return (sf * d.Index(i)) + ((1 - sf) * (d.DoubleSmoothPoint(i-1, sf, tf) + d.bVal(i-1, sf, tf)))
+}
+
+func (d *DataFrame) bVal(i int, sf, tf float64) float64 {
+	if i <= 1 {
+		return d.Index(1) - d.Index(0)
+	}
+
+	return (tf * (d.DoubleSmoothPoint(i, sf, tf) - d.DoubleSmoothPoint(i-1, sf, tf))) + ((1 - tf) * d.bVal(i-1, sf, tf))
 }
 
 func (d *DataFrame) Copy() *DataFrame {
