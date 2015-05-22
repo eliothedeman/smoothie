@@ -62,24 +62,6 @@ func (d *DataFrame) MovingAverage(windowSize int) *DataFrame {
 	return ma
 }
 
-func (d *DataFrame) SingleExponentialSmooth(sf float64) *DataFrame {
-	smoothed := EmptyDataFrame(d.Len())
-
-	for i := 0; i < d.Len(); i++ {
-		smoothed.Push(d.SingleSmoothPoint(i, sf))
-	}
-
-	return smoothed
-}
-
-func (d *DataFrame) SingleSmoothPoint(i int, sf float64) float64 {
-	if i <= 1 {
-		return (sf * d.Index(i)) + (1 - sf)
-	}
-
-	return (sf * d.Index(i)) + ((1 - sf) * d.SingleSmoothPoint(i-1, sf))
-}
-
 func (d *DataFrame) Copy() *DataFrame {
 	dst := NewDataFrame(make([]float64, d.Len()))
 	copy(dst.data, d.data)
@@ -140,23 +122,40 @@ func (d *DataFrame) Shrink(amount int) *DataFrame {
 
 func (d *DataFrame) Avg() float64 {
 	var t float64
+	var l int
 	for _, e := range d.data {
-		t += e
+		if !math.IsNaN(e) {
+			t += e
+			l++
+		}
 	}
 
-	return t / float64(d.Len())
+	if l == 0 {
+		return 0
+	}
+
+	return t / float64(l)
 }
 
 // standard deviation of the data frame
 func (d *DataFrame) StdDev() float64 {
 	var diff float64
+	var l int
 	avg := d.Avg()
 
 	for _, e := range d.data {
-		diff += math.Abs(avg - e)
+		if !math.IsNaN(e) {
+			diff += math.Abs(avg - e)
+			l++
+
+		}
 	}
 
-	return diff / float64(d.Len())
+	if l == 0 {
+		return 0
+	}
+
+	return diff / float64(l)
 }
 
 func (d *DataFrame) Push(e float64) float64 {

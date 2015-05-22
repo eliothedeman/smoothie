@@ -51,13 +51,11 @@ func TestShrink(t *testing.T) {
 }
 
 func TestDoubleSmoothing(t *testing.T) {
-	df := EmptyDataFrame(24)
+	df := EmptyDataFrame(1000)
 
 	for i := 0; i < df.Len(); i++ {
 		df.Push(float64(i) * rand.Float64())
 	}
 
-	log.Println(df.Data())
 	df = df.DoubleExponentialSmooth(0.4, 0.2)
-	log.Println(df.Data())
 }
