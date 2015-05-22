@@ -16,12 +16,99 @@ func NewDataFrame(f []float64) *DataFrame {
 	}
 }
 
+type WeightingFunc func(index, length int) float64
+
+func LinearWeighting(index, length int) float64 {
+	return float64(index) / float64(length)
+}
+
+func ReverseLinearWeighting(index, length int) float64 {
+	return 1 - LinearWeighting(index, length)
+}
+
+func (d *DataFrame) Weight(wf WeightingFunc) *DataFrame {
+	for i := 0; i < d.Len(); i++ {
+		d.Insert(i, d.Index(i)*wf(i, d.Len()))
+	}
+	return d
+}
+
+func (d *DataFrame) WeightedMovingAverage(windowSize int, wf WeightingFunc) *DataFrame {
+	ma := NewDataFrame(make([]float64, d.Len()))
+
+	for i := 0; i < d.Len()-windowSize; i++ {
+		ma.Push(d.Slice(i, i+windowSize).Weight(wf).Avg())
+	}
+
+	return ma
+}
+
+// calculate the moving average of the dataframe
+func (d *DataFrame) MovingAverage(windowSize int) *DataFrame {
+	ma := NewDataFrame(make([]float64, d.Len()))
+	for i := windowSize; i < d.Len()-windowSize; i++ {
+		ma.Push(d.Slice(i, i+windowSize).Avg())
+	}
+
+	return ma
+}
+
+func (d *DataFrame) Copy() *DataFrame {
+	dst := NewDataFrame(make([]float64, d.Len()))
+	copy(dst.data, d.data)
+	dst.pivot = d.pivot
+	return dst
+}
+
+// return the sub slice of the data as a data frame
+func (d *DataFrame) Slice(b, e int) *DataFrame {
+	if b >= e {
+		panic(fmt.Sprintf("Dataframe: beginning cannot be larger than end in slice operaton. Begining: %d End: %d", b, e))
+	}
+
+	if e > d.Len() {
+		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", e, d.Len()))
+	}
+
+	slice := make([]float64, e-b)
+	for i := range slice {
+		slice[i] = d.Index(e + i)
+	}
+
+	return NewDataFrame(slice)
+}
+
 func (d *DataFrame) Len() int {
 	return len(d.data)
 }
 
-func (d *DataFrame) Cap() int {
-	return cap(d.data)
+func (d *DataFrame) Grow(amount int) *DataFrame {
+
+	// separate the first and second halves
+	first := d.data[d.pivot:]
+	last := d.data[:d.pivot]
+
+	// make a new slice that can accomodate the new space
+	d.data = make([]float64, d.Len()+amount)
+	copy(d.data[:d.pivot], first)
+	copy(d.data[d.pivot:amount+d.pivot], last)
+	d.pivot += amount
+	return d
+}
+
+func (d *DataFrame) Shrink(amount int) *DataFrame {
+	if amount > d.Len() {
+		panic(fmt.Sprintf("DataFrame: unable to shrink frame. amount: %d length: %d", d.Len(), amount))
+	}
+
+	newData := make([]float64, d.Len()-amount)
+
+	for i := range newData {
+		newData[i] = d.Index(i)
+	}
+
+	d.data = newData
+	return d
 }
 
 func (d *DataFrame) Avg() float64 {
@@ -33,6 +120,7 @@ func (d *DataFrame) Avg() float64 {
 	return t / float64(d.Len())
 }
 
+// standard deviation of the data frame
 func (d *DataFrame) StdDev() float64 {
 	var diff float64
 	avg := d.Avg()
@@ -47,6 +135,14 @@ func (d *DataFrame) StdDev() float64 {
 func (d *DataFrame) Push(e float64) {
 	d.data[d.pivot] = e
 	d.incrPivot()
+}
+
+func (d *DataFrame) Insert(i int, val float64) {
+	if !d.hasIndex(i) {
+		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", i, d.Len()))
+	}
+
+	d.data[d.realIndex(i)] = val
 }
 
 func (d *DataFrame) Index(i int) float64 {
