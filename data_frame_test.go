@@ -11,7 +11,7 @@ func init() {
 }
 
 func TestDataFrameInsert(t *testing.T) {
-	df := NewDataFrame(make([]float64, 100))
+	df := NewDataFrame(100)
 
 	for i := 0; i < 101; i++ {
 		df.Push(float64(i))
@@ -23,7 +23,7 @@ func TestDataFrameInsert(t *testing.T) {
 }
 
 func TestGrow(t *testing.T) {
-	df := NewDataFrame(make([]float64, 10))
+	df := NewDataFrame(10)
 
 	for i := 0; i < 15; i++ {
 		df.Push(float64(i))
@@ -41,7 +41,7 @@ func TestGrow(t *testing.T) {
 }
 
 func TestShrink(t *testing.T) {
-	df := NewDataFrame(make([]float64, 10))
+	df := NewDataFrame(10)
 
 	df.Shrink(2)
 

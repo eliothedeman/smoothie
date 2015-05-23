@@ -4,6 +4,11 @@ import (
 	"math"
 )
 
+// alias for DoubleExponentialSmoothing
+func (d *DataFrame) HoltWinters(sf, tf float64) *DataFrame {
+	return d.DoubleExponentialSmooth(sf, tf)
+}
+
 // given a smoothing factor, apply the hold-winters double exponential smoothing algorhythm
 func (d *DataFrame) DoubleExponentialSmooth(sf, tf float64) *DataFrame {
 	smoothingScratch := EmptyDataFrame(d.Len())

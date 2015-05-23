@@ -3,7 +3,6 @@ package smoothie
 import (
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"os"
 	"testing"
@@ -48,16 +47,9 @@ func testPlot(df *DataFrame, name string, mod func(*DataFrame) *DataFrame) {
 }
 
 func randDF(size int) *DataFrame {
-	df := EmptyDataFrame(size)
-
-	for i := 0; i < df.Len(); i++ {
-		if i == 0 {
-			df.Insert(i, math.Sin(float64(i)/float64(df.Len())))
-		} else {
-			df.Insert(i, rand.Float64()+math.Sin(16*math.Pi*float64(i)/float64(df.Len()))+math.Sin(8*math.Pi*float64(i)/float64(df.Len())))
-		}
-	}
-	return df
+	df := NewSignal(200, rand.Float64()*20)
+	df = df.Add(NewSignal(200, rand.Float64()*20))
+	return df.Add(Noise(200))
 }
 
 type mod func(df *DataFrame) *DataFrame

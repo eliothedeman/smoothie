@@ -2,6 +2,7 @@ package smoothie
 
 import (
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/gonum/plot/plotter"
@@ -12,14 +13,20 @@ type DataFrame struct {
 	data  []float64
 }
 
-func NewDataFrame(f []float64) *DataFrame {
+func NewDataFrameFromSlice(f []float64) *DataFrame {
 	return &DataFrame{
 		data: f,
 	}
 }
 
+func NewDataFrame(length int) *DataFrame {
+	return &DataFrame{
+		data: make([]float64, length),
+	}
+}
+
 func EmptyDataFrame(size int) *DataFrame {
-	df := NewDataFrame(make([]float64, size))
+	df := NewDataFrame(size)
 	for i := 0; i < df.Len(); i++ {
 		df.Push(math.NaN())
 	}
@@ -45,7 +52,7 @@ func (d *DataFrame) Weight(wf WeightingFunc) *DataFrame {
 }
 
 func (d *DataFrame) WeightedMovingAverage(windowSize int, wf WeightingFunc) *DataFrame {
-	ma := NewDataFrame(make([]float64, d.Len()))
+	ma := NewDataFrame(d.Len())
 
 	for i := 0; i < d.Len(); i++ {
 		if i+windowSize > d.Len() {
@@ -61,7 +68,7 @@ func (d *DataFrame) WeightedMovingAverage(windowSize int, wf WeightingFunc) *Dat
 
 // calculate the moving average of the dataframe
 func (d *DataFrame) MovingAverage(windowSize int) *DataFrame {
-	ma := NewDataFrame(make([]float64, d.Len()))
+	ma := NewDataFrame(d.Len())
 	for i := 0; i < d.Len(); i++ {
 		if i+windowSize > d.Len() {
 			ma.Insert(i, d.Slice(i, d.Len()).Avg())
@@ -73,8 +80,101 @@ func (d *DataFrame) MovingAverage(windowSize int) *DataFrame {
 	return ma
 }
 
+func (d *DataFrame) AddConst(f float64) *DataFrame {
+	df := NewDataFrame(d.Len())
+	for i := 0; i < d.Len(); i++ {
+		df.Insert(i, f+d.Index(i))
+
+	}
+
+	return df
+}
+
+func (d *DataFrame) SubConst(f float64) *DataFrame {
+	df := NewDataFrame(d.Len())
+	for i := 0; i < d.Len(); i++ {
+		df.Insert(i, d.Index(i)-f)
+
+	}
+
+	return df
+}
+func (d *DataFrame) MultiConst(f float64) *DataFrame {
+	df := NewDataFrame(d.Len())
+	for i := 0; i < d.Len(); i++ {
+		df.Insert(i, f*d.Index(i))
+
+	}
+
+	return df
+}
+func (d *DataFrame) DivConst(f float64) *DataFrame {
+	df := NewDataFrame(d.Len())
+	for i := 0; i < d.Len(); i++ {
+		df.Insert(i, d.Index(i)/f)
+
+	}
+
+	return df
+}
+func (d *DataFrame) Add(df *DataFrame) *DataFrame {
+	if d.Len() != df.Len() {
+		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
+	}
+
+	newDf := NewDataFrame(d.Len())
+
+	for i := 0; i < d.Len(); i++ {
+		newDf.Insert(i, d.Index(i)+df.Index(i))
+	}
+
+	return newDf
+}
+
+func (d *DataFrame) Sub(df *DataFrame) *DataFrame {
+	if d.Len() != df.Len() {
+		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
+	}
+
+	newDf := NewDataFrame(d.Len())
+
+	for i := 0; i < d.Len(); i++ {
+		newDf.Insert(i, d.Index(i)-df.Index(i))
+	}
+
+	return newDf
+}
+
+func (d *DataFrame) Mutli(df *DataFrame) *DataFrame {
+	if d.Len() != df.Len() {
+		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
+	}
+
+	newDf := NewDataFrame(d.Len())
+
+	for i := 0; i < d.Len(); i++ {
+		newDf.Insert(i, d.Index(i)*df.Index(i))
+	}
+
+	return newDf
+}
+
+func (d *DataFrame) Dev(df *DataFrame) *DataFrame {
+	if d.Len() != df.Len() {
+		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
+	}
+
+	newDf := NewDataFrame(d.Len())
+
+	for i := 0; i < d.Len(); i++ {
+		newDf.Insert(i, d.Index(i)/df.Index(i))
+	}
+
+	return newDf
+}
+
 func (d *DataFrame) Copy() *DataFrame {
-	dst := NewDataFrame(make([]float64, d.Len()))
+	dst := NewDataFrame(d.Len())
 	copy(dst.data, d.data)
 	dst.pivot = d.pivot
 	return dst
@@ -95,7 +195,7 @@ func (d *DataFrame) Slice(b, e int) *DataFrame {
 		slice[i] = d.Index(b + i)
 	}
 
-	return NewDataFrame(slice)
+	return NewDataFrameFromSlice(slice)
 }
 
 func (d *DataFrame) Len() int {
