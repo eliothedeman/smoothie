@@ -3,6 +3,8 @@ package smoothie
 import (
 	"fmt"
 	"math"
+
+	"github.com/gonum/plot/plotter"
 )
 
 type DataFrame struct {
@@ -37,7 +39,7 @@ func ReverseLinearWeighting(index, length int) float64 {
 
 func (d *DataFrame) Weight(wf WeightingFunc) *DataFrame {
 	for i := 0; i < d.Len(); i++ {
-		d.Insert(i, d.Index(i)*wf(i, d.Len()))
+		d.Insert(i, 2.5*d.Index(i)*wf(i, d.Len()))
 	}
 	return d
 }
@@ -45,8 +47,13 @@ func (d *DataFrame) Weight(wf WeightingFunc) *DataFrame {
 func (d *DataFrame) WeightedMovingAverage(windowSize int, wf WeightingFunc) *DataFrame {
 	ma := NewDataFrame(make([]float64, d.Len()))
 
-	for i := 0; i < d.Len()-windowSize; i++ {
-		ma.Push(d.Slice(i, i+windowSize).Weight(wf).Avg())
+	for i := 0; i < d.Len(); i++ {
+		if i+windowSize > d.Len() {
+			ma.Insert(i, d.Slice(i, d.Len()).Weight(wf).Avg())
+		} else {
+			ma.Insert(i, d.Slice(i, i+windowSize).Weight(wf).Avg())
+		}
+
 	}
 
 	return ma
@@ -55,8 +62,12 @@ func (d *DataFrame) WeightedMovingAverage(windowSize int, wf WeightingFunc) *Dat
 // calculate the moving average of the dataframe
 func (d *DataFrame) MovingAverage(windowSize int) *DataFrame {
 	ma := NewDataFrame(make([]float64, d.Len()))
-	for i := windowSize; i < d.Len()-windowSize; i++ {
-		ma.Push(d.Slice(i, i+windowSize).Avg())
+	for i := 0; i < d.Len(); i++ {
+		if i+windowSize > d.Len() {
+			ma.Insert(i, d.Slice(i, d.Len()).Avg())
+		} else {
+			ma.Insert(i, d.Slice(i, i+windowSize).Avg())
+		}
 	}
 
 	return ma
@@ -81,7 +92,7 @@ func (d *DataFrame) Slice(b, e int) *DataFrame {
 
 	slice := make([]float64, e-b)
 	for i := range slice {
-		slice[i] = d.Index(e + i)
+		slice[i] = d.Index(b + i)
 	}
 
 	return NewDataFrame(slice)
@@ -203,4 +214,15 @@ func (d *DataFrame) realIndex(i int) int {
 func (d *DataFrame) incrPivot() {
 	d.pivot += 1
 	d.pivot = d.pivot % d.Len()
+}
+
+func (d *DataFrame) PlotPoints() plotter.XYs {
+	pts := make(plotter.XYs, d.Len())
+
+	for i := range pts {
+		pts[i].X = float64(i)
+		pts[i].Y = d.Index(i)
+	}
+
+	return pts
 }
