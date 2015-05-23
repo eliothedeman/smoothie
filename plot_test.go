@@ -37,7 +37,7 @@ func testPlot(df *DataFrame, name string, mod func(*DataFrame) *DataFrame) {
 	can := draw.New(c)
 
 	p.Draw(can)
-
+	p.Save(16*vg.Inch, 9*vg.Inch, fmt.Sprintf("%s.png", name))
 	f, err := os.Create(fmt.Sprintf("%s.svg", name))
 	if err != nil {
 		log.Fatal(err)
