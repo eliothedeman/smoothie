@@ -8,23 +8,27 @@ import (
 	"github.com/gonum/plot/plotter"
 )
 
+// A ring buffer implementation optomized for use with moving window statistic operations
 type DataFrame struct {
 	pivot int
 	data  []float64
 }
 
+// Create a new dataframe from an existing slice
 func NewDataFrameFromSlice(f []float64) *DataFrame {
 	return &DataFrame{
 		data: f,
 	}
 }
 
+// Create a new 0'd out dataframe
 func NewDataFrame(length int) *DataFrame {
 	return &DataFrame{
 		data: make([]float64, length),
 	}
 }
 
+// Create a new dataframe filled with NaN values
 func EmptyDataFrame(size int) *DataFrame {
 	df := NewDataFrame(size)
 	for i := 0; i < df.Len(); i++ {
@@ -34,8 +38,10 @@ func EmptyDataFrame(size int) *DataFrame {
 	return df
 }
 
+// Given an index and the length of a dataframe, returns the weight for the given value
 type WeightingFunc func(index, length int) float64
 
+// Values have a higher weight as time goes on in a liniar fashion
 func LinearWeighting(index, length int) float64 {
 	return float64(index) / float64(length)
 }
@@ -44,6 +50,7 @@ func ReverseLinearWeighting(index, length int) float64 {
 	return 1 - LinearWeighting(index, length)
 }
 
+// Apply a weighting function to a dataframe
 func (d *DataFrame) Weight(wf WeightingFunc) *DataFrame {
 	for i := 0; i < d.Len(); i++ {
 		d.Insert(i, 2.5*d.Index(i)*wf(i, d.Len()))
@@ -51,6 +58,7 @@ func (d *DataFrame) Weight(wf WeightingFunc) *DataFrame {
 	return d
 }
 
+// Returns a new dataframe with a weighted moving average applied to it
 func (d *DataFrame) WeightedMovingAverage(windowSize int, wf WeightingFunc) *DataFrame {
 	ma := NewDataFrame(d.Len())
 
@@ -80,43 +88,54 @@ func (d *DataFrame) MovingAverage(windowSize int) *DataFrame {
 	return ma
 }
 
+// Add a single value to every value of the dataframe
 func (d *DataFrame) AddConst(f float64) *DataFrame {
 	df := NewDataFrame(d.Len())
 	for i := 0; i < d.Len(); i++ {
-		df.Insert(i, f+d.Index(i))
-
+		if math.IsNaN(df.Index(i)) {
+			df.Insert(i, f+d.Index(i))
+		}
 	}
-
 	return df
 }
 
+// Subtract a single value from every value in the dataframe
 func (d *DataFrame) SubConst(f float64) *DataFrame {
 	df := NewDataFrame(d.Len())
 	for i := 0; i < d.Len(); i++ {
-		df.Insert(i, d.Index(i)-f)
-
+		if math.IsNaN(df.Index(i)) {
+			df.Insert(i, d.Index(i)-f)
+		}
 	}
 
 	return df
 }
+
+// Multiply every value of the dataframe by a single value
 func (d *DataFrame) MultiConst(f float64) *DataFrame {
 	df := NewDataFrame(d.Len())
 	for i := 0; i < d.Len(); i++ {
-		df.Insert(i, f*d.Index(i))
-
+		if math.IsNaN(df.Index(i)) {
+			df.Insert(i, f*d.Index(i))
+		}
 	}
 
 	return df
 }
+
+// Devide every value of the dataframe by a single value
 func (d *DataFrame) DivConst(f float64) *DataFrame {
 	df := NewDataFrame(d.Len())
 	for i := 0; i < d.Len(); i++ {
-		df.Insert(i, d.Index(i)/f)
-
+		if math.IsNaN(df.Index(i)) {
+			df.Insert(i, d.Index(i)/f)
+		}
 	}
 
 	return df
 }
+
+// Add two dataframes together
 func (d *DataFrame) Add(df *DataFrame) *DataFrame {
 	if d.Len() != df.Len() {
 		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
@@ -131,6 +150,7 @@ func (d *DataFrame) Add(df *DataFrame) *DataFrame {
 	return newDf
 }
 
+// Subtract a dataframe by another dataframe
 func (d *DataFrame) Sub(df *DataFrame) *DataFrame {
 	if d.Len() != df.Len() {
 		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
@@ -145,6 +165,7 @@ func (d *DataFrame) Sub(df *DataFrame) *DataFrame {
 	return newDf
 }
 
+// Multiply two dataframes together
 func (d *DataFrame) Mutli(df *DataFrame) *DataFrame {
 	if d.Len() != df.Len() {
 		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
@@ -159,6 +180,7 @@ func (d *DataFrame) Mutli(df *DataFrame) *DataFrame {
 	return newDf
 }
 
+// Divide a dataframe by another dataframe
 func (d *DataFrame) Dev(df *DataFrame) *DataFrame {
 	if d.Len() != df.Len() {
 		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
@@ -173,6 +195,7 @@ func (d *DataFrame) Dev(df *DataFrame) *DataFrame {
 	return newDf
 }
 
+// Copy return a copy of the dataframe
 func (d *DataFrame) Copy() *DataFrame {
 	dst := NewDataFrame(d.Len())
 	copy(dst.data, d.data)
@@ -198,10 +221,12 @@ func (d *DataFrame) Slice(b, e int) *DataFrame {
 	return NewDataFrameFromSlice(slice)
 }
 
+// Return the length of the dataframe
 func (d *DataFrame) Len() int {
 	return len(d.data)
 }
 
+// Grow the dataframe by a given amount
 func (d *DataFrame) Grow(amount int) *DataFrame {
 
 	// separate the first and second halves
@@ -212,10 +237,16 @@ func (d *DataFrame) Grow(amount int) *DataFrame {
 	d.data = make([]float64, d.Len()+amount)
 	copy(d.data[:d.pivot], first)
 	copy(d.data[d.pivot:amount+d.pivot], last)
-	d.pivot += amount
+
+	// fill the new values with NaN
+	for i := 0; i < amount; i++ {
+		d.Push(math.NaN())
+	}
+
 	return d
 }
 
+// Shrink a dataframe by a given amount
 func (d *DataFrame) Shrink(amount int) *DataFrame {
 	if amount > d.Len() {
 		panic(fmt.Sprintf("DataFrame: unable to shrink frame. amount: %d length: %d", d.Len(), amount))
@@ -231,6 +262,7 @@ func (d *DataFrame) Shrink(amount int) *DataFrame {
 	return d
 }
 
+// Return the mean of the dataframe
 func (d *DataFrame) Avg() float64 {
 	var t float64
 	var l int
@@ -269,12 +301,14 @@ func (d *DataFrame) StdDev() float64 {
 	return diff / float64(l)
 }
 
+// Add a new element to the beginning of the dataframe, this will remove the last value of the dataframe
 func (d *DataFrame) Push(e float64) float64 {
 	d.data[d.pivot] = e
 	d.incrPivot()
 	return e
 }
 
+// Insert an element to a spesific index of the dataframe
 func (d *DataFrame) Insert(i int, val float64) float64 {
 	if !d.hasIndex(i) {
 		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", i, d.Len()))
@@ -284,6 +318,7 @@ func (d *DataFrame) Insert(i int, val float64) float64 {
 	return val
 }
 
+// Get the value of the dataframe at a given index
 func (d *DataFrame) Index(i int) float64 {
 	if !d.hasIndex(i) {
 		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", i, d.Len()))
@@ -296,6 +331,7 @@ func (d *DataFrame) hasIndex(i int) bool {
 	return (i >= 0 && i < d.Len())
 }
 
+// Return the contents of a dataframe flattened into a []float64
 func (d *DataFrame) Data() []float64 {
 	ord := make([]float64, d.Len())
 
@@ -306,7 +342,7 @@ func (d *DataFrame) Data() []float64 {
 	return ord
 }
 
-// returns the value the given index is actually pointing to
+// Returns the value the given index is actually pointing to
 func (d *DataFrame) realIndex(i int) int {
 	return (d.pivot + i) % d.Len()
 }
@@ -316,6 +352,7 @@ func (d *DataFrame) incrPivot() {
 	d.pivot = d.pivot % d.Len()
 }
 
+// Return a numgo.Plot format for the dataframe
 func (d *DataFrame) PlotPoints() plotter.XYs {
 	pts := make(plotter.XYs, d.Len())
 
