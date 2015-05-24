@@ -47,8 +47,8 @@ func testPlot(df *DataFrame, name string, mod func(*DataFrame) *DataFrame) {
 }
 
 func randDF(size int) *DataFrame {
-	df := NewSignal(200, rand.Float64()*20)
-	df = df.Add(NewSignal(200, rand.Float64()*20))
+	df := NewSignal(200, rand.Float64()*15)
+	df = df.Add(NewSignal(200, rand.Float64()*7))
 	return df.Add(Noise(200))
 }
 
