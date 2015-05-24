@@ -15,18 +15,60 @@ import (
 )
 
 func testPlot(df *DataFrame, name string, mod func(*DataFrame) *DataFrame) {
+	plotMulti(name, []string{"raw", "smooth"}, []*DataFrame{df, mod(df)})
 
+}
+
+func plotMulti(name string, names []string, frames []*DataFrame) {
+	if len(names) != len(frames) {
+		log.Fatal("wrong length for plots")
+	}
 	p, err := plot.New()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	newdf := mod(df)
+	p.X.Label.Text = "X"
+	p.Y.Label.Text = "Y"
+
+	lines := make([]interface{}, len(names)*2)
+	x := 0
+	for i := 0; i < len(lines); i += 2 {
+		lines[i] = names[x]
+		lines[i+1] = frames[x].PlotPoints()
+		x += 1
+	}
+
+	err = plotutil.AddLinePoints(p, lines...)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c := vgsvg.New(16*vg.Inch, 9*vg.Inch)
+
+	can := draw.New(c)
+
+	p.Draw(can)
+	p.Save(16*vg.Inch/2, 9*vg.Inch/2, fmt.Sprintf("%s.png", name))
+	f, err := os.Create(fmt.Sprintf("%s.svg", name))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.WriteTo(f)
+
+}
+
+func plotSingle(df *DataFrame, name string) {
+	p, err := plot.New()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	p.X.Label.Text = "X"
 	p.Y.Label.Text = "Y"
 
-	err = plotutil.AddLinePoints(p, "raw", df.PlotPoints(), "smooth", newdf.PlotPoints())
+	err = plotutil.AddLinePoints(p, name, df.PlotPoints())
 	if err != nil {
 		log.Fatal(err)
 	}

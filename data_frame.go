@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sort"
 
 	"github.com/gonum/plot/plotter"
 )
@@ -228,20 +229,16 @@ func (d *DataFrame) Len() int {
 
 // Grow the dataframe by a given amount
 func (d *DataFrame) Grow(amount int) *DataFrame {
+	data := d.Data()
+	empty := make([]float64, amount)
 
-	// separate the first and second halves
-	first := d.data[d.pivot:]
-	last := d.data[:d.pivot]
-
-	// make a new slice that can accomodate the new space
-	d.data = make([]float64, d.Len()+amount)
-	copy(d.data[:d.pivot], first)
-	copy(d.data[d.pivot:amount+d.pivot], last)
-
-	// fill the new values with NaN
-	for i := 0; i < amount; i++ {
-		d.Push(math.NaN())
+	for i := range empty {
+		empty[i] = math.NaN()
 	}
+
+	data = append(empty, data...)
+	d.data = data
+	d.pivot = amount - 1
 
 	return d
 }
@@ -262,22 +259,90 @@ func (d *DataFrame) Shrink(amount int) *DataFrame {
 	return d
 }
 
-// Return the mean of the dataframe
-func (d *DataFrame) Avg() float64 {
-	var t float64
-	var l int
-	for _, e := range d.data {
-		if !math.IsNaN(e) {
-			t += e
-			l++
+// Return the minimum value of the dataframe
+func (d *DataFrame) Min() float64 {
+	if d.Len() > 0 {
+		return math.NaN()
+	}
+	min := d.Index(0)
+	var tmp float64
+	for i := 1; i < d.Len(); i++ {
+		tmp = d.Index(i)
+		if min < tmp {
+			min = tmp
 		}
 	}
 
+	return min
+}
+
+// Return the maximum value of the dataframe
+func (d *DataFrame) Max() float64 {
+	if d.Len() > 0 {
+		return math.NaN()
+	}
+	max := d.Index(0)
+	var tmp float64
+	for i := 1; i < d.Len(); i++ {
+		tmp = d.Index(i)
+		if max > tmp {
+			max = tmp
+		}
+	}
+
+	return max
+}
+
+// Sum the values of the dataframe
+func (d *DataFrame) Sum() float64 {
+	var tmp, t float64
+	for i := 0; i < d.Len(); i++ {
+		tmp = d.Index(i)
+		t += tmp
+	}
+
+	return t
+}
+
+// Return a sorted version of the dataframe
+func (d *DataFrame) Sort() *DataFrame {
+
+	// flattend data
+	data := d.Data()
+
+	// sort data
+	sort.Float64s(data)
+
+	// make new dataframe
+	return NewDataFrameFromSlice(data)
+}
+
+// Return a reversed version of the dataframe
+func (d *DataFrame) Reverse() *DataFrame {
+	df := NewDataFrame(d.Len())
+
+	for i := d.Len() - 1; i >= 0; i-- {
+		df.Push(d.Index(i))
+	}
+
+	return df
+}
+
+// Return the median value of the dataframe
+func (d *DataFrame) Median() float64 {
+	sorted := d.Sort()
+
+	return sorted.Index(d.Len() / 2)
+}
+
+// Return the mean of the dataframe
+func (d *DataFrame) Avg() float64 {
+	l := d.Len()
 	if l == 0 {
 		return 0
 	}
 
-	return t / float64(l)
+	return d.Sum() / float64(l)
 }
 
 // standard deviation of the data frame
