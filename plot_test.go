@@ -78,8 +78,8 @@ func plotSingle(df *DataFrame, name string) {
 	can := draw.New(c)
 
 	p.Draw(can)
-	p.Save(16*vg.Inch/2, 9*vg.Inch/2, fmt.Sprintf("%s.png", name))
-	f, err := os.Create(fmt.Sprintf("%s.svg", name))
+	p.Save(16*vg.Inch/2, 9*vg.Inch/2, fmt.Sprintf("graphs/%s.png", name))
+	f, err := os.Create(fmt.Sprintf("graphs/%s.svg", name))
 	if err != nil {
 		log.Fatal(err)
 	}
