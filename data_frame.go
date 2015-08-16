@@ -196,6 +196,22 @@ func (d *DataFrame) Div(df *DataFrame) *DataFrame {
 	return newDf
 }
 
+// return a dataframe filled with the derivative values of this dataframe
+func (d *DataFrame) Derivative() *DataFrame {
+	// this will have n-1 length because the first value will always be 0
+	n := NewDataFrame(d.Len() - 1)
+	d.ForEach(func(v float64, i int) {
+		// skip the first value
+		if i == 0 {
+			return
+		}
+
+		n.Insert(i-1, d.Index(i)-d.Index(i-1))
+	})
+
+	return n
+}
+
 // Copy return a copy of the dataframe
 func (d *DataFrame) Copy() *DataFrame {
 	dst := NewDataFrame(d.Len())
