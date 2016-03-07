@@ -44,7 +44,8 @@ func bVal(i int, smooth, trend, season float64, period int, s, b, c, d *DataFram
 }
 func cVal(i int, smooth, trend, season float64, period int, s, b, c, d *DataFrame) float64 {
 	// if we haven't been trained yet, just return the raw value
-	if i < 0 {
+	if i < 1 {
+
 		return d.Index(i + period)
 	}
 
@@ -60,17 +61,35 @@ func cVal(i int, smooth, trend, season float64, period int, s, b, c, d *DataFram
 	return x + y
 }
 
-// TripleSmooth  applies holt-winters tripple-exponential smoothing
+func aVals(d, a *DataFrame, period int) *DataFrame {
+	n := d.Len() / period
+	df := NewDataFrame(period)
+	for i := 1; i < n; i++ {
+
+	}
+
+	return df
+
+}
+
+// TripleSmooth applies holt-winters triple-exponential smoothing to the given dataframe
 func (d *DataFrame) TripleSmooth(smooth, trend, season float64, period int) *DataFrame {
+
 	s := EmptyDataFrame(d.Len())
 	b := EmptyDataFrame(d.Len())
 	c := EmptyDataFrame(d.Len())
 
-	for i := 0; i < d.Len(); i++ {
+	// set initial values
+	s.Insert(0, d.Index(0))
+	var x float64
+	for i := 0; i < period; i++ {
+		x += (d.Index(i) - d.Index(i+period)) / float64(period)
+	}
+	b.Insert(0, x*(1/float64(period)))
+
+	for i := 1; i < d.Len(); i++ {
 
 		// cache the produced values
-		c.Insert(i, cVal(i, smooth, trend, season, period, s, b, c, d))
-		b.Insert(i, bVal(i, smooth, trend, season, period, s, b, c, d))
 		s.Insert(i, sVal(i, smooth, trend, season, period, s, b, c, d))
 	}
 

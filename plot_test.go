@@ -89,8 +89,7 @@ func plotSingle(df *DataFrame, name string) {
 }
 
 func randDF(size int) *DataFrame {
-	df := NewSignal(200, rand.Float64()*15)
-	df = df.Add(NewSignal(200, rand.Float64()*7))
+	df := NewSignal(200, rand.Float64()*7)
 	return df.Add(Noise(200))
 }
 
@@ -114,7 +113,7 @@ var (
 			return df.SingleExponentialSmooth(0.3)
 		},
 		"triple_smooth": func(df *DataFrame) *DataFrame {
-			return df.TripleSmooth(0.2, 0.3, 0.5, 4)
+			return df.TripleSmooth(0.5, 0.3, 0.5, 7)
 		},
 	}
 )
