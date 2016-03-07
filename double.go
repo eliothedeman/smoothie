@@ -4,12 +4,33 @@ import (
 	"math"
 )
 
-// alias for DoubleExponentialSmoothing
-func (d *DataFrame) HoltWinters(sf, tf float64) *DataFrame {
-	return d.DoubleExponentialSmooth(sf, tf)
+// DoubleSmoothPredictPoint the Nth data point in the future
+func (d *DataFrame) DoubleSmoothPredictPoint(n int, sf, tf float64) float64 {
+	p := EmptyDataFrame(d.Len())
+	b := EmptyDataFrame(d.Len())
+
+	p.Insert(0, d.Index(0))
+	b.Insert(0, d.Index(0))
+
+	// so normal holt-winters for the beginning of the data frame
+	for i := 0; i < d.Len(); i++ {
+		p.Insert(i, d.doubleSmoothPoint(i, sf, tf, p, b))
+	}
+
+	return p.Index(d.Len()-1) + (p.bVal(p.Len()-1, sf, tf, p, b) * float64(n))
 }
 
-// given a smoothing factor, apply the hold-winters double exponential smoothing algorhythm
+// DoubleSmoothPredictN return a new DataFrame filled with n predictions
+func (d *DataFrame) DoubleSmoothPredictN(n int, sf, tf float64) *DataFrame {
+	p := EmptyDataFrame(n)
+	for i := 0; i < n; i++ {
+		p.Insert(i, d.DoubleSmoothPredictPoint(i, sf, tf))
+	}
+
+	return p
+}
+
+// DoubleExponentialSmooth given a smoothing factor, apply the hold-winters double exponential smoothing algorhythm
 func (d *DataFrame) DoubleExponentialSmooth(sf, tf float64) *DataFrame {
 	smoothingScratch := EmptyDataFrame(d.Len())
 	bValScratch := EmptyDataFrame(d.Len())
@@ -23,11 +44,6 @@ func (d *DataFrame) DoubleExponentialSmooth(sf, tf float64) *DataFrame {
 	}
 
 	return smoothingScratch
-}
-
-// Predict n data points in the future and return them as a dataframe
-func (d *DataFrame) Predict(n int) *DataFrame {
-	return d.Copy()
 }
 
 func (d *DataFrame) doubleSmoothPoint(i int, sf, tf float64, s, b *DataFrame) float64 {

@@ -107,8 +107,14 @@ var (
 		"double_smooth": func(df *DataFrame) *DataFrame {
 			return df.DoubleExponentialSmooth(0.2, 0.3)
 		},
+		"predict_holt-winters": func(df *DataFrame) *DataFrame {
+			return df.DoubleSmoothPredictN(100, 0.2, 0.3)
+		},
 		"single_smooth": func(df *DataFrame) *DataFrame {
 			return df.SingleExponentialSmooth(0.3)
+		},
+		"triple_smooth": func(df *DataFrame) *DataFrame {
+			return df.TripleSmooth(0.2, 0.3, 0.5, 4)
 		},
 	}
 )
