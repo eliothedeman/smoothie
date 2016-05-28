@@ -1,5 +1,5 @@
 # smoothie
-exponential smoothing toolkit
+Data smoothing toolkit
 
 ## Moving Average
 ![](https://github.com/eliothedeman/smoothie/blob/master/graphs/moving_average.png?raw=true)
