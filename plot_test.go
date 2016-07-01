@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gonum/plot"
 	"github.com/gonum/plot/plotutil"
@@ -13,6 +14,10 @@ import (
 	"github.com/gonum/plot/vg/draw"
 	"github.com/gonum/plot/vg/vgsvg"
 )
+
+func init() {
+	rand.Seed(int64(time.Now().Second()))
+}
 
 func testPlot(df *DataFrame, name string, mod func(*DataFrame) *DataFrame) {
 	plotMulti(name, []string{"raw", "smooth"}, []*DataFrame{df, mod(df)})
@@ -36,7 +41,7 @@ func plotMulti(name string, names []string, frames []*DataFrame) {
 	for i := 0; i < len(lines); i += 2 {
 		lines[i] = names[x]
 		lines[i+1] = frames[x].PlotPoints()
-		x += 1
+		x++
 	}
 
 	err = plotutil.AddLinePoints(p, lines...)
@@ -96,7 +101,7 @@ func randDF(size int) *DataFrame {
 type mod func(df *DataFrame) *DataFrame
 
 var (
-	test_mods = map[string]mod{
+	testMods = map[string]mod{
 		"moving_average": func(df *DataFrame) *DataFrame {
 			return df.MovingAverage(10)
 		},
@@ -105,9 +110,6 @@ var (
 		},
 		"double_smooth": func(df *DataFrame) *DataFrame {
 			return df.DoubleExponentialSmooth(0.2, 0.3)
-		},
-		"predict_holt-winters": func(df *DataFrame) *DataFrame {
-			return df.DoubleSmoothPredictN(100, 0.2, 0.3)
 		},
 		"single_smooth": func(df *DataFrame) *DataFrame {
 			return df.SingleExponentialSmooth(0.3)
@@ -121,7 +123,7 @@ var (
 func TestPlotDF(t *testing.T) {
 	rand := randDF(200)
 
-	for k, v := range test_mods {
+	for k, v := range testMods {
 		testPlot(rand, k, v)
 	}
 }

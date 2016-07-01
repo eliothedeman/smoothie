@@ -47,7 +47,7 @@ func BenchmarkHoltWinters100(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		df.HoltWinters(0.3, 0.2)
+		df.DoubleExponentialSmooth(0.3, 0.2)
 	}
 }
 
@@ -57,6 +57,6 @@ func BenchmarkHoltWinters1000(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		df.HoltWinters(0.3, 0.2)
+		df.DoubleExponentialSmooth(0.3, 0.2)
 	}
 }
