@@ -2,6 +2,8 @@ package smoothie
 
 import "math"
 
+// SingleExponentialSmooth applies basic exponential smoothing to the contents
+// of the DataFrame.
 func (d *DataFrame) SingleExponentialSmooth(sf float64) *DataFrame {
 	smoothed := EmptyDataFrame(d.Len())
 

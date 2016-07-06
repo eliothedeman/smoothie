@@ -111,6 +111,9 @@ var (
 		"double_smooth": func(df *DataFrame) *DataFrame {
 			return df.DoubleExponentialSmooth(0.2, 0.3)
 		},
+		"double_smooth_predict": func(df *DataFrame) *DataFrame {
+			return df.DoubleSmoothPredictN(100, 0.5, 0.3)
+		},
 		"single_smooth": func(df *DataFrame) *DataFrame {
 			return df.SingleExponentialSmooth(0.3)
 		},

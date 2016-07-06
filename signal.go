@@ -45,7 +45,7 @@ func (d *DataFrame) FFTTopFreqs() *DataFrame {
 	stdDev := r.StdDev()
 	top := NewDataFrame(0)
 	for i := 1; i < r.Len(); i++ {
-		if r.Index(i) > stdDev*5 {
+		if r.Index(i) > stdDev*3 {
 			top.Grow(1)
 			top.Push(float64(i))
 		}
