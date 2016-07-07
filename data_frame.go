@@ -59,6 +59,26 @@ func (d *DataFrame) Weight(wf WeightingFunc) *DataFrame {
 	return d
 }
 
+// Reduce the dataframe to a given size.
+// TODO : (eliothedeman) optomize this
+func (d *DataFrame) Reduce(newSize int) *DataFrame {
+	out := NewDataFrame(newSize)
+	s := d.Len() / newSize
+	tmp := NewDataFrame(s)
+	for i := 0; i < d.Len(); i += s {
+		for x := 0; x < s; x++ {
+			if i+x >= d.Len() {
+				break
+			}
+			tmp.Push(d.Index(i + x))
+		}
+		index := float64((float64(i) / float64(d.Len())) * float64(out.Len()))
+
+		out.Insert(int(index), tmp.Avg())
+	}
+	return out
+}
+
 // Returns a new dataframe with a weighted moving average applied to it
 func (d *DataFrame) WeightedMovingAverage(windowSize int, wf WeightingFunc) *DataFrame {
 	ma := NewDataFrame(d.Len())

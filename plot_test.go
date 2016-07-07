@@ -120,6 +120,15 @@ var (
 		"triple_smooth": func(df *DataFrame) *DataFrame {
 			return df.TripleSmooth(0.5, 0.3, 0.5, 7)
 		},
+		"convolve": func(df *DataFrame) *DataFrame {
+
+			k := NewDataFrameFromSlice([]float64{
+				1, 2, 4, 2, 1, 2, 4, 2, 1,
+			})
+
+			df = df.KernalConvolve(k)
+			return df
+		},
 	}
 )
 
