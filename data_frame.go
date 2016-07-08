@@ -185,6 +185,13 @@ func (d *DataFrame) Add(df *DataFrame) *DataFrame {
 	return newDf
 }
 
+// Shift the pivito of the dataframe.
+func (d *DataFrame) Shift(offset int) *DataFrame {
+	n := d.Copy()
+	n.pivot = (n.pivot + offset) % d.Len()
+	return n
+}
+
 // Subtract a dataframe by another dataframe
 func (d *DataFrame) Sub(df *DataFrame) *DataFrame {
 	if d.Len() != df.Len() {
