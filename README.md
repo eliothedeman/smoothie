@@ -1,14 +1,14 @@
 # smoothie
-Data smoothing toolkit
 
-## Moving Average
-![](https://github.com/eliothedeman/smoothie/blob/master/graphs/moving_average.png?raw=true)
+Generic numeric data-frame operations for integer and floating-point values.
 
-## Weighted Moving Average
-![](https://github.com/eliothedeman/smoothie/blob/master/graphs/weighted_average.png?raw=true)
+```go
+integers := smoothie.NewDataFrameFromSlice([]int{1, 2, 3})
+floats := smoothie.NewFloatDataFrameFromSlice([]float64{1, 2, 3})
 
-## Single Exponential Smoothing (Brown's simple smoothing)
-![](https://github.com/eliothedeman/smoothie/blob/master/graphs/single_smooth.png?raw=true)
+sum := integers.Sum()
+average := floats.Avg()
+```
 
-## Double Exponential Smoothing (Holt-Winters)
-![](https://github.com/eliothedeman/smoothie/blob/master/graphs/double_smooth.png?raw=true)
+`FloatDataFrame` provides floating-point-only operations such as averages,
+moving averages, exponential smoothing, Fourier transforms, and convolution.

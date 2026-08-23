@@ -3,507 +3,334 @@ package smoothie
 import (
 	"fmt"
 	"log"
-	"math"
 	"sort"
-
-	"github.com/gonum/plot/plotter"
 )
 
-// A ring buffer implementation optomized for use with moving window statistic operations
-type DataFrame struct {
+type Num interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
+		~float32 | ~float64
+}
+
+// A ring buffer implementation optimized for moving window statistic operations.
+type DataFrame[T Num] struct {
+	data  []T
 	pivot int
-	data  []float64
 }
 
-// Create a new dataframe from an existing slice
-func NewDataFrameFromSlice(f []float64) *DataFrame {
-	return &DataFrame{
-		data: f,
-	}
+// Create a new dataframe from an existing slice.
+func NewDataFrameFromSlice[T Num](data []T) *DataFrame[T] {
+	return &DataFrame[T]{data: data}
 }
 
-// Create a new 0'd out dataframe
-func NewDataFrame(length int) *DataFrame {
-	return &DataFrame{
-		data: make([]float64, length),
-	}
+// Create a new zero-valued dataframe.
+func NewDataFrame[T Num](length int) *DataFrame[T] {
+	return &DataFrame[T]{data: make([]T, length)}
 }
 
-// Create a new dataframe filled with NaN values
-func EmptyDataFrame(size int) *DataFrame {
-	df := NewDataFrame(size)
-	for i := 0; i < df.Len(); i++ {
-		df.Push(math.NaN())
-	}
-
-	return df
-}
-
-// Given an index and the length of a dataframe, returns the weight for the given value
-type WeightingFunc func(index, length int) float64
-
-// Values have a higher weight as time goes on in a liniar fashion
-func LinearWeighting(index, length int) float64 {
-	return float64(index) / float64(length)
-}
-
-func ReverseLinearWeighting(index, length int) float64 {
-	return 1 - LinearWeighting(index, length)
-}
-
-// Apply a weighting function to a dataframe
-func (d *DataFrame) Weight(wf WeightingFunc) *DataFrame {
+// Add a value to every value of the dataframe.
+func (d *DataFrame[T]) AddConst(value T) *DataFrame[T] {
+	out := NewDataFrame[T](d.Len())
 	for i := 0; i < d.Len(); i++ {
-		d.Insert(i, 2.5*d.Index(i)*wf(i, d.Len()))
-	}
-	return d
-}
-
-// Reduce the dataframe to a given size.
-// TODO : (eliothedeman) optomize this
-func (d *DataFrame) Reduce(newSize int) *DataFrame {
-	out := NewDataFrame(newSize)
-	s := d.Len() / newSize
-	tmp := NewDataFrame(s)
-	for i := 0; i < d.Len(); i += s {
-		for x := 0; x < s; x++ {
-			if i+x >= d.Len() {
-				break
-			}
-			tmp.Push(d.Index(i + x))
-		}
-		index := float64((float64(i) / float64(d.Len())) * float64(out.Len()))
-
-		out.Insert(int(index), tmp.Avg())
+		out.Insert(i, d.Index(i)+value)
 	}
 	return out
 }
 
-// Returns a new dataframe with a weighted moving average applied to it
-func (d *DataFrame) WeightedMovingAverage(windowSize int, wf WeightingFunc) *DataFrame {
-	ma := NewDataFrame(d.Len())
-
+// Subtract a value from every value of the dataframe.
+func (d *DataFrame[T]) SubConst(value T) *DataFrame[T] {
+	out := NewDataFrame[T](d.Len())
 	for i := 0; i < d.Len(); i++ {
-		if i+windowSize > d.Len() {
-			ma.Insert(i, d.Slice(i, d.Len()).Weight(wf).Avg())
-		} else {
-			ma.Insert(i, d.Slice(i, i+windowSize).Weight(wf).Avg())
-		}
-
+		out.Insert(i, d.Index(i)-value)
 	}
-
-	return ma
+	return out
 }
 
-// inPlaceAverage calculates the average of the given slice without doing a heap allocation
-func inPlaceAvg(df *DataFrame, b, e int) float64 {
-	l := float64(e - b)
-	total := 0.0
-	for b < e {
-		total += df.Index(b)
-		b++
-	}
-
-	return total / l
-}
-
-// calculate the moving average of the dataframe
-func (d *DataFrame) MovingAverage(windowSize int) *DataFrame {
-	ma := NewDataFrame(d.Len())
-
-	// do the average without creating a new dataframe
+// Multiply every value of the dataframe by a value.
+func (d *DataFrame[T]) MultiConst(value T) *DataFrame[T] {
+	out := NewDataFrame[T](d.Len())
 	for i := 0; i < d.Len(); i++ {
-		if i+windowSize > d.Len() {
-			ma.Insert(i, inPlaceAvg(d, i, d.Len()))
-		} else {
-			ma.Insert(i, inPlaceAvg(d, i, i+windowSize))
-		}
+		out.Insert(i, d.Index(i)*value)
 	}
-
-	return ma
+	return out
 }
 
-// Add a single value to every value of the dataframe
-func (d *DataFrame) AddConst(f float64) *DataFrame {
-	df := NewDataFrame(d.Len())
+// Divide every value of the dataframe by a value.
+func (d *DataFrame[T]) DivConst(value T) *DataFrame[T] {
+	out := NewDataFrame[T](d.Len())
 	for i := 0; i < d.Len(); i++ {
-		if math.IsNaN(df.Index(i)) {
-			df.Insert(i, f+d.Index(i))
-		}
+		out.Insert(i, d.Index(i)/value)
 	}
-	return df
+	return out
 }
 
-// Subtract a single value from every value in the dataframe
-func (d *DataFrame) SubConst(f float64) *DataFrame {
-	df := NewDataFrame(d.Len())
+// Add two dataframes together.
+func (d *DataFrame[T]) Add(other *DataFrame[T]) *DataFrame[T] {
+	d.requireSameLength("Add", other)
+	out := NewDataFrame[T](d.Len())
 	for i := 0; i < d.Len(); i++ {
-		if math.IsNaN(df.Index(i)) {
-			df.Insert(i, d.Index(i)-f)
-		}
+		out.Insert(i, d.Index(i)+other.Index(i))
 	}
-
-	return df
+	return out
 }
 
-// Multiply every value of the dataframe by a single value
-func (d *DataFrame) MultiConst(f float64) *DataFrame {
-	df := NewDataFrame(d.Len())
+// Shift the pivot of the dataframe.
+func (d *DataFrame[T]) Shift(offset int) *DataFrame[T] {
+	out := d.Copy()
+	if out.Len() == 0 {
+		return out
+	}
+	out.pivot = (out.pivot + offset) % out.Len()
+	if out.pivot < 0 {
+		out.pivot += out.Len()
+	}
+	return out
+}
+
+// Subtract a dataframe by another dataframe.
+func (d *DataFrame[T]) Sub(other *DataFrame[T]) *DataFrame[T] {
+	d.requireSameLength("Sub", other)
+	out := NewDataFrame[T](d.Len())
 	for i := 0; i < d.Len(); i++ {
-		if math.IsNaN(df.Index(i)) {
-			df.Insert(i, f*d.Index(i))
-		}
+		out.Insert(i, d.Index(i)-other.Index(i))
 	}
-
-	return df
+	return out
 }
 
-// Devide every value of the dataframe by a single value
-func (d *DataFrame) DivConst(f float64) *DataFrame {
-	df := NewDataFrame(d.Len())
+// Mutli multiplies two dataframes together.
+func (d *DataFrame[T]) Mutli(other *DataFrame[T]) *DataFrame[T] {
+	d.requireSameLength("Mutli", other)
+	out := NewDataFrame[T](d.Len())
 	for i := 0; i < d.Len(); i++ {
-		if math.IsNaN(df.Index(i)) {
-			df.Insert(i, d.Index(i)/f)
-		}
+		out.Insert(i, d.Index(i)*other.Index(i))
 	}
-
-	return df
+	return out
 }
 
-// Add two dataframes together
-func (d *DataFrame) Add(df *DataFrame) *DataFrame {
-	if d.Len() != df.Len() {
-		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
-	}
-
-	newDf := NewDataFrame(d.Len())
-
+// Div divides a dataframe by another dataframe.
+func (d *DataFrame[T]) Div(other *DataFrame[T]) *DataFrame[T] {
+	d.requireSameLength("Div", other)
+	out := NewDataFrame[T](d.Len())
 	for i := 0; i < d.Len(); i++ {
-		newDf.Insert(i, d.Index(i)+df.Index(i))
+		out.Insert(i, d.Index(i)/other.Index(i))
 	}
-
-	return newDf
+	return out
 }
 
-// Shift the pivito of the dataframe.
-func (d *DataFrame) Shift(offset int) *DataFrame {
-	n := d.Copy()
-	n.pivot = (n.pivot + offset) % d.Len()
-	return n
+// Derivative returns the difference between adjacent values.
+func (d *DataFrame[T]) Derivative() *DataFrame[T] {
+	if d.Len() == 0 {
+		return NewDataFrame[T](0)
+	}
+
+	out := NewDataFrame[T](d.Len() - 1)
+	for i := 1; i < d.Len(); i++ {
+		out.Insert(i-1, d.Index(i)-d.Index(i-1))
+	}
+	return out
 }
 
-// Subtract a dataframe by another dataframe
-func (d *DataFrame) Sub(df *DataFrame) *DataFrame {
-	if d.Len() != df.Len() {
-		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
-	}
-
-	newDf := NewDataFrame(d.Len())
-
-	for i := 0; i < d.Len(); i++ {
-		newDf.Insert(i, d.Index(i)-df.Index(i))
-	}
-
-	return newDf
+// Copy returns a copy of the dataframe.
+func (d *DataFrame[T]) Copy() *DataFrame[T] {
+	out := NewDataFrame[T](d.Len())
+	copy(out.data, d.data)
+	out.pivot = d.pivot
+	return out
 }
 
-// Multiply two dataframes together
-func (d *DataFrame) Mutli(df *DataFrame) *DataFrame {
-	if d.Len() != df.Len() {
-		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
+// Slice returns the values in the half-open range [begin, end].
+func (d *DataFrame[T]) Slice(begin, end int) *DataFrame[T] {
+	if begin >= end {
+		panic(fmt.Sprintf("DataFrame: beginning cannot be larger than end in slice operation. Beginning: %d End: %d", begin, end))
+	}
+	if begin < 0 || end > d.Len() {
+		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", end, d.Len()))
 	}
 
-	newDf := NewDataFrame(d.Len())
-
-	for i := 0; i < d.Len(); i++ {
-		newDf.Insert(i, d.Index(i)*df.Index(i))
+	values := make([]T, end-begin)
+	for i := range values {
+		values[i] = d.Index(begin + i)
 	}
-
-	return newDf
+	return NewDataFrameFromSlice(values)
 }
 
-// Divide a dataframe by another dataframe
-func (d *DataFrame) Div(df *DataFrame) *DataFrame {
-	if d.Len() != df.Len() {
-		log.Panicf("Add: len %d and %d don't match", d.Len(), df.Len())
-	}
-
-	newDf := NewDataFrame(d.Len())
-
-	for i := 0; i < d.Len(); i++ {
-		newDf.Insert(i, d.Index(i)/df.Index(i))
-	}
-
-	return newDf
-}
-
-// return a dataframe filled with the derivative values of this dataframe
-func (d *DataFrame) Derivative() *DataFrame {
-	// this will have n-1 length because the first value will always be 0
-	n := NewDataFrame(d.Len() - 1)
-	d.ForEach(func(v float64, i int) {
-		// skip the first value
-		if i == 0 {
-			return
-		}
-
-		n.Insert(i-1, d.Index(i)-d.Index(i-1))
-	})
-
-	return n
-}
-
-// Copy return a copy of the dataframe
-func (d *DataFrame) Copy() *DataFrame {
-	dst := NewDataFrame(d.Len())
-	copy(dst.data, d.data)
-	dst.pivot = d.pivot
-	return dst
-}
-
-// return the sub slice of the data as a data frame
-func (d *DataFrame) Slice(b, e int) *DataFrame {
-	if b >= e {
-		panic(fmt.Sprintf("Dataframe: beginning cannot be larger than end in slice operaton. Begining: %d End: %d", b, e))
-	}
-
-	if e > d.Len() {
-		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", e, d.Len()))
-	}
-
-	slice := make([]float64, e-b)
-	for i := range slice {
-		slice[i] = d.Index(b + i)
-	}
-
-	return NewDataFrameFromSlice(slice)
-}
-
-// Return the length of the dataframe
-func (d *DataFrame) Len() int {
+// Len returns the length of the dataframe.
+func (d *DataFrame[T]) Len() int {
 	return len(d.data)
 }
 
-// Grow the dataframe by a given amount
-func (d *DataFrame) Grow(amount int) *DataFrame {
-	data := d.Data()
-	empty := make([]float64, amount)
-
-	for i := range empty {
-		empty[i] = math.NaN()
+// Grow increases the dataframe by a given amount with zero values.
+func (d *DataFrame[T]) Grow(amount int) *DataFrame[T] {
+	if amount < 0 {
+		panic("DataFrame: grow amount cannot be negative")
 	}
-
-	data = append(empty, data...)
-	d.data = data
-	d.pivot = amount - 1
-
-	return d
-}
-
-// Shrink a dataframe by a given amount
-func (d *DataFrame) Shrink(amount int) *DataFrame {
-	if amount > d.Len() {
-		d.data = []float64{}
+	if amount == 0 {
 		return d
 	}
 
-	newData := make([]float64, d.Len()-amount)
-
-	for i := range newData {
-		newData[i] = d.Index(i)
-	}
-
-	d.data = newData
+	data := make([]T, amount+d.Len())
+	copy(data[amount:], d.Data())
+	d.data = data
+	d.pivot = 0
 	return d
 }
 
-// Return the minimum value of the dataframe
-func (d *DataFrame) Min() float64 {
-	if d.Len() > 0 {
-		return math.NaN()
+// Shrink removes values from the dataframe.
+func (d *DataFrame[T]) Shrink(amount int) *DataFrame[T] {
+	if amount < 0 {
+		panic("DataFrame: shrink amount cannot be negative")
 	}
-	min := d.Index(0)
-	var tmp float64
-	for i := 1; i < d.Len(); i++ {
-		tmp = d.Index(i)
-		if min < tmp {
-			min = tmp
-		}
+	if amount >= d.Len() {
+		d.data = nil
+		d.pivot = 0
+		return d
 	}
 
-	return min
+	values := make([]T, d.Len()-amount)
+	for i := range values {
+		values[i] = d.Index(i)
+	}
+	d.data = values
+	d.pivot = 0
+	return d
 }
 
-// Return the maximum value of the dataframe
-func (d *DataFrame) Max() float64 {
-	if d.Len() > 0 {
-		return math.NaN()
+// Min returns the minimum value of the dataframe. It returns the zero value
+// of T for an empty dataframe.
+func (d *DataFrame[T]) Min() T {
+	if d.Len() == 0 {
+		var zero T
+		return zero
 	}
-	max := d.Index(0)
-	var tmp float64
+
+	minimum := d.Index(0)
 	for i := 1; i < d.Len(); i++ {
-		tmp = d.Index(i)
-		if max > tmp {
-			max = tmp
+		if value := d.Index(i); value < minimum {
+			minimum = value
 		}
 	}
-
-	return max
+	return minimum
 }
 
-// Sum the values of the dataframe
-func (d *DataFrame) Sum() float64 {
-	var tmp, t float64
+// Max returns the maximum value of the dataframe. It returns the zero value
+// of T for an empty dataframe.
+func (d *DataFrame[T]) Max() T {
+	if d.Len() == 0 {
+		var zero T
+		return zero
+	}
+
+	maximum := d.Index(0)
+	for i := 1; i < d.Len(); i++ {
+		if value := d.Index(i); value > maximum {
+			maximum = value
+		}
+	}
+	return maximum
+}
+
+// Sum returns the sum of the values in the dataframe.
+func (d *DataFrame[T]) Sum() T {
+	var total T
 	for i := 0; i < d.Len(); i++ {
-		tmp = d.Index(i)
-		t += tmp
+		total += d.Index(i)
 	}
-
-	return t
+	return total
 }
 
-func (d *DataFrame) ForEach(f func(data float64, index int)) {
+func (d *DataFrame[T]) ForEach(f func(data T, index int)) {
 	for i := 0; i < d.Len(); i++ {
 		f(d.Index(i), i)
 	}
 }
 
-// Concatinate two dataframes
-func (d *DataFrame) Cat(c *DataFrame) *DataFrame {
-	n := NewDataFrame(c.Len() + d.Len())
-
-	// insert d's values
+// Cat concatenates two dataframes.
+func (d *DataFrame[T]) Cat(other *DataFrame[T]) *DataFrame[T] {
+	out := NewDataFrame[T](d.Len() + other.Len())
 	for i := 0; i < d.Len(); i++ {
-		n.Push(d.Index(i))
+		out.Push(d.Index(i))
 	}
-
-	for i := 0; i < c.Len(); i++ {
-		n.Push(c.Index(i))
+	for i := 0; i < other.Len(); i++ {
+		out.Push(other.Index(i))
 	}
-	return n
+	return out
 }
 
-// Return a sorted version of the dataframe
-func (d *DataFrame) Sort() *DataFrame {
-
-	// flattend data
-	data := d.Data()
-
-	// sort data
-	sort.Float64s(data)
-
-	// make new dataframe
-	return NewDataFrameFromSlice(data)
+// Sort returns a sorted version of the dataframe.
+func (d *DataFrame[T]) Sort() *DataFrame[T] {
+	values := d.Data()
+	sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
+	return NewDataFrameFromSlice(values)
 }
 
-// Return a reversed version of the dataframe
-func (d *DataFrame) Reverse() *DataFrame {
-	df := NewDataFrame(d.Len())
-
+// Reverse returns a reversed version of the dataframe.
+func (d *DataFrame[T]) Reverse() *DataFrame[T] {
+	out := NewDataFrame[T](d.Len())
 	for i := d.Len() - 1; i >= 0; i-- {
-		df.Push(d.Index(i))
+		out.Push(d.Index(i))
 	}
-
-	return df
+	return out
 }
 
-// Return the median value of the dataframe
-func (d *DataFrame) Median() float64 {
-	sorted := d.Sort()
-
-	return sorted.Index(d.Len() / 2)
+// Median returns the middle value of a sorted dataframe.
+func (d *DataFrame[T]) Median() T {
+	if d.Len() == 0 {
+		var zero T
+		return zero
+	}
+	return d.Sort().Index(d.Len() / 2)
 }
 
-// Return the mean of the dataframe
-func (d *DataFrame) Avg() float64 {
-	l := d.Len()
-	if l == 0 {
-		return 0
+// Push adds an element to the dataframe and advances the ring-buffer pivot.
+func (d *DataFrame[T]) Push(value T) T {
+	if d.Len() == 0 {
+		panic("DataFrame: cannot push to an empty dataframe")
 	}
-
-	return d.Sum() / float64(l)
-}
-
-// standard deviation of the data frame
-func (d *DataFrame) StdDev() float64 {
-	var diff float64
-	var l int
-	avg := d.Avg()
-
-	for _, e := range d.data {
-		if !math.IsNaN(e) {
-			diff += math.Abs(avg - e)
-			l++
-
-		}
-	}
-
-	if l == 0 {
-		return 0
-	}
-
-	return diff / float64(l)
-}
-
-// Add a new element to the beginning of the dataframe, this will remove the last value of the dataframe
-func (d *DataFrame) Push(e float64) float64 {
-	d.data[d.pivot] = e
+	d.data[d.pivot] = value
 	d.incrPivot()
-	return e
+	return value
 }
 
-// Insert an element to a spesific index of the dataframe
-func (d *DataFrame) Insert(i int, val float64) float64 {
-	if !d.hasIndex(i) {
-		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", i, d.Len()))
+// Insert inserts an element at a specific logical index.
+func (d *DataFrame[T]) Insert(index int, value T) T {
+	if !d.hasIndex(index) {
+		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", index, d.Len()))
 	}
-
-	d.data[d.realIndex(i)] = val
-	return val
+	d.data[d.realIndex(index)] = value
+	return value
 }
 
-// Get the value of the dataframe at a given index
-func (d *DataFrame) Index(i int) float64 {
-	if !d.hasIndex(i) {
-		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", i, d.Len()))
+// Index returns the value at a logical index.
+func (d *DataFrame[T]) Index(index int) T {
+	if !d.hasIndex(index) {
+		panic(fmt.Sprintf("DataFrame: index out of range. index: %d length: %d", index, d.Len()))
 	}
-
-	return d.data[d.realIndex(i)]
+	return d.data[d.realIndex(index)]
 }
 
-func (d *DataFrame) hasIndex(i int) bool {
-	return (i >= 0 && i < d.Len())
+func (d *DataFrame[T]) hasIndex(index int) bool {
+	return index >= 0 && index < d.Len()
 }
 
-// Return the contents of a dataframe flattened into a []float64
-func (d *DataFrame) Data() []float64 {
-	ord := make([]float64, d.Len())
-
-	for i := range d.data {
-		ord[i] = d.Index(i)
+// Data returns the contents of a dataframe flattened into a slice.
+func (d *DataFrame[T]) Data() []T {
+	values := make([]T, d.Len())
+	for i := range values {
+		values[i] = d.Index(i)
 	}
-
-	return ord
+	return values
 }
 
-// Returns the value the given index is actually pointing to
-func (d *DataFrame) realIndex(i int) int {
-	return (d.pivot + i) % d.Len()
-}
-
-func (d *DataFrame) incrPivot() {
-	d.pivot += 1
-	d.pivot = d.pivot % d.Len()
-}
-
-// Return a numgo.Plot format for the dataframe
-func (d *DataFrame) PlotPoints() plotter.XYs {
-	pts := make(plotter.XYs, d.Len())
-
-	for i := range pts {
-		pts[i].X = float64(i)
-		pts[i].Y = d.Index(i)
+func (d *DataFrame[T]) requireSameLength(operation string, other *DataFrame[T]) {
+	if d.Len() != other.Len() {
+		log.Panicf("%s: len %d and %d don't match", operation, d.Len(), other.Len())
 	}
+}
 
-	return pts
+func (d *DataFrame[T]) realIndex(index int) int {
+	return (d.pivot + index) % d.Len()
+}
+
+func (d *DataFrame[T]) incrPivot() {
+	d.pivot = (d.pivot + 1) % d.Len()
 }
